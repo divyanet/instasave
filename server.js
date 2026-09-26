@@ -237,15 +237,51 @@ function extractDashVideo(html) {
 
 
 /* All candidate progressive video URLs (best quality first) for audio conversion.
-   Some renditions can be video-only, so /api/audio tries them in order. */
+   Some renditions can be video-only, so /api/audio tries them in order,
+   then falls back to the DASH audio-only stream. */
 async function extractAllVideoUrls(canonical) {
+  const html = await fetchMediaHtml(canonical);
+  if (!html) return { videos: [], dashAudio: null };
+  const urls = extractVideoVersions(html);
+  const extra = [...metaValues(html, 'og:video:secure_url'), ...metaValues(html, 'og:video')];
+  for (const u of extra) if (!urls.includes(u)) urls.push(u);
+  return { videos: urls, dashAudio: extractDashAudio(html) };
+}
+
+
+/* Best audio-only stream from the DASH manifest (for reels whose
+   progressive variants carry no audio track). Returns URL or null. */
+function extractDashAudio(html) {
+  const m = html.match(/"video_dash_manifest":"((?:[^"\\]|\\.)*)"/);
+  if (!m) return null;
+  let mpd;
+  try { mpd = JSON.parse('"' + m[1] + '"'); } catch { return null; }
+  mpd = decodeEntities(mpd);
+  const reps = [];
+  const reRep = /<Representation\b[^>]*>/g;
+  let rm;
+  while ((rm = reRep.exec(mpd)) !== null) {
+    const tag = rm[0];
+    if (!/^mimeType="audio\//m.test(tag) && !/mimeType="audio\//.test(tag)) continue;
+    const bw = parseInt((tag.match(/bandwidth="(\d+)"/) || [])[1] || '0', 10);
+    const baseStart = mpd.indexOf('<BaseURL>', rm.index);
+    if (baseStart === -1) continue;
+    const baseEnd = mpd.indexOf('</BaseURL>', baseStart);
+    if (baseEnd === -1 || baseEnd - baseStart > 2000) continue;
+    const url = decodeEntities(mpd.slice(baseStart + 9, baseEnd).trim());
+    if (/^https:\/\//.test(url)) reps.push({ url, bw });
+  }
+  reps.sort((a, b) => b.bw - a.bw);
+  return reps.length ? reps[0].url : null;
+}
+
+/* Fetch page HTML (desktop UA, mobile retry) — shared by audio candidate gathering. */
+async function fetchMediaHtml(canonical) {
   let res;
   try {
     res = await fetchText(canonical, { ua: UA, fullHeaders: true, timeoutMs: 25000 });
-  } catch {
-    return [];
-  }
-  if (!res.ok || res.url.includes('/accounts/login')) return [];
+  } catch { return null; }
+  if (!res.ok || res.url.includes('/accounts/login')) return null;
   let html = await res.text();
   if (!html.includes('video_versions')) {
     try {
@@ -259,10 +295,7 @@ async function extractAllVideoUrls(canonical) {
       }
     } catch { /* keep first response */ }
   }
-  const urls = extractVideoVersions(html);
-  const extra = [...metaValues(html, 'og:video:secure_url'), ...metaValues(html, 'og:video')];
-  for (const u of extra) if (!urls.includes(u)) urls.push(u);
-  return urls;
+  return html;
 }
 
 /* ---------------- Strategy 1: direct page (full media) ---------------- */
@@ -479,7 +512,8 @@ app.get('/api/audio', async (req, res) => {
       message: 'Audio conversion is temporarily unavailable. Please try again later.',
     });
   }
-  const candidates = await extractAllVideoUrls(canonical);
+  const { videos, dashAudio } = await extractAllVideoUrls(canonical);
+  const candidates = [...videos, ...(dashAudio ? [dashAudio] : [])];
   if (!candidates.length) {
     return res.status(404).json({
       ok: false, code: 'NOT_FOUND',
@@ -487,7 +521,7 @@ app.get('/api/audio', async (req, res) => {
     });
   }
   let converted = null;
-  for (const vurl of candidates.slice(0, 4)) {
+  for (const vurl of candidates.slice(0, 6)) {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     const inFile = path.join(os.tmpdir(), `is-in-${id}.mp4`);
     const outFile = path.join(os.tmpdir(), `is-out-${id}.mp3`);
