@@ -517,6 +517,29 @@ app.get('/api/audio', async (req, res) => {
   }
 });
 
+/* TEMPORARY diagnostic endpoint for ffmpeg debugging — remove after fix. */
+app.get('/api/diag-ffmpeg', async (req, res) => {
+  const out = { ffmpegPath, exists: false, executable: false };
+  try {
+    if (ffmpegPath) {
+      out.exists = fs.existsSync(ffmpegPath);
+      try { fs.accessSync(ffmpegPath, fs.constants.X_OK); out.executable = true; } catch {}
+      out.size = out.exists ? fs.statSync(ffmpegPath).size : 0;
+      const r = await new Promise((resolve) => {
+        const p = spawn(ffmpegPath, ['-version']);
+        let so = '', se = '';
+        const t = setTimeout(() => { p.kill('SIGKILL'); resolve({ timeout: true, so, se }); }, 15000);
+        p.stdout.on('data', (d) => { so += d.toString().slice(0, 500); });
+        p.stderr.on('data', (d) => { se += d.toString().slice(0, 500); });
+        p.on('error', (e) => { clearTimeout(t); resolve({ spawnError: e.message, so, se }); });
+        p.on('close', (code) => { clearTimeout(t); resolve({ code, so, se }); });
+      });
+      out.run = r;
+    }
+  } catch (e) { out.error = e.message; }
+  res.json(out);
+});
+
 /* ---------------- Profile picture (HD) ---------------- */
 function normalizeProfileInput(input) {
   if (!input || typeof input !== 'string') return null;
