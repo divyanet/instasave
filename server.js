@@ -235,6 +235,36 @@ function extractDashVideo(html) {
   return reps.length ? reps[0].url : null;
 }
 
+
+/* All candidate progressive video URLs (best quality first) for audio conversion.
+   Some renditions can be video-only, so /api/audio tries them in order. */
+async function extractAllVideoUrls(canonical) {
+  let res;
+  try {
+    res = await fetchText(canonical, { ua: UA, fullHeaders: true, timeoutMs: 25000 });
+  } catch {
+    return [];
+  }
+  if (!res.ok || res.url.includes('/accounts/login')) return [];
+  let html = await res.text();
+  if (!html.includes('video_versions')) {
+    try {
+      const r2 = await fetchText(canonical, {
+        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        fullHeaders: true, timeoutMs: 25000,
+      });
+      if (r2 && r2.ok) {
+        const h2 = await r2.text();
+        if (h2.includes('video_versions')) html = h2;
+      }
+    } catch { /* keep first response */ }
+  }
+  const urls = extractVideoVersions(html);
+  const extra = [...metaValues(html, 'og:video:secure_url'), ...metaValues(html, 'og:video')];
+  for (const u of extra) if (!urls.includes(u)) urls.push(u);
+  return urls;
+}
+
 /* ---------------- Strategy 1: direct page (full media) ---------------- */
 async function strategyDirectHTML(canonical) {
   let res;
@@ -449,137 +479,71 @@ app.get('/api/audio', async (req, res) => {
       message: 'Audio conversion is temporarily unavailable. Please try again later.',
     });
   }
-  let info;
-  try {
-    info = await extractMedia(canonical);
-  } catch {
+  const candidates = await extractAllVideoUrls(canonical);
+  if (!candidates.length) {
     return res.status(404).json({
       ok: false, code: 'NOT_FOUND',
       message: 'Could not find media at this link. It may be private, deleted, or the link is wrong.',
     });
   }
-  if (info.type !== 'video' || !info.url) {
-    return res.status(422).json({
-      ok: false, code: 'NO_VIDEO',
-      message: 'This link has no downloadable video to convert. Audio works with reels and video posts.',
-    });
-  }
-  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const inFile = path.join(os.tmpdir(), `is-in-${id}.mp4`);
-  const outFile = path.join(os.tmpdir(), `is-out-${id}.mp3`);
-  const cleanup = () => {
-    fs.unlink(inFile, () => {});
-    fs.unlink(outFile, () => {});
-  };
-  try {
-    const up = await fetch(info.url, {
-      headers: { 'User-Agent': UA, Referer: 'https://www.instagram.com/' },
-      signal: AbortSignal.timeout(45000),
-    });
-    if (!up.ok || !up.body) throw new Error('upstream');
-    const buf = Buffer.from(await up.arrayBuffer());
-    if (buf.length > 60 * 1024 * 1024) throw new Error('too-big');
-    fs.writeFileSync(inFile, buf);
-    await new Promise((resolve, reject) => {
-      const p = spawn(ffmpegPath, [
-        '-y', '-i', inFile, '-vn',
-        '-acodec', 'libmp3lame', '-q:a', '4',
-        '-loglevel', 'error', outFile,
-      ]);
-      const t = setTimeout(() => {
-        p.kill('SIGKILL');
-        reject(new Error('timeout'));
-      }, 90000);
-      p.on('error', (e) => {
-        clearTimeout(t);
-        reject(e);
-      });
-      p.on('close', (code) => {
-        clearTimeout(t);
-        if (code === 0 && fs.existsSync(outFile)) resolve();
-        else reject(new Error('ffmpeg-exit-' + code));
-      });
-    });
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Content-Disposition', `attachment; filename="instasave-audio-${id}.mp3"`);
-    res.setHeader('Cache-Control', 'no-store');
-    const stream = fs.createReadStream(outFile);
-    stream.on('close', cleanup);
-    stream.on('error', cleanup);
-    stream.pipe(res);
-  } catch (err) {
-    cleanup();
-    console.error('[instasave] /api/audio failed:', err && err.message);
-    return res.status(502).json({
-      ok: false, code: 'CONVERT_FAILED',
-      message: 'Could not convert this video to MP3. Please try another link.',
-    });
-  }
-});
-
-/* TEMPORARY diagnostic endpoint for ffmpeg debugging — remove after fix. */
-app.get('/api/diag-ffmpeg', async (req, res) => {
-  const out = { ffmpegPath, exists: false, executable: false };
-  try {
-    if (ffmpegPath) {
-      out.exists = fs.existsSync(ffmpegPath);
-      try { fs.accessSync(ffmpegPath, fs.constants.X_OK); out.executable = true; } catch {}
-      out.size = out.exists ? fs.statSync(ffmpegPath).size : 0;
-      const r = await new Promise((resolve) => {
-        const p = spawn(ffmpegPath, ['-version']);
-        let so = '', se = '';
-        const t = setTimeout(() => { p.kill('SIGKILL'); resolve({ timeout: true, so, se }); }, 15000);
-        p.stdout.on('data', (d) => { so += d.toString().slice(0, 500); });
-        p.stderr.on('data', (d) => { se += d.toString().slice(0, 500); });
-        p.on('error', (e) => { clearTimeout(t); resolve({ spawnError: e.message, so, se }); });
-        p.on('close', (code) => { clearTimeout(t); resolve({ code, so, se }); });
-      });
-      out.run = r;
-    }
-  } catch (e) { out.error = e.message; }
-  res.json(out);
-});
-
-/* TEMPORARY diagnostic: runs the audio pipeline step-by-step — remove after fix. */
-app.get('/api/diag-audio', async (req, res) => {
-  const stages = {};
-  try {
-    const canonical = normalizeInstagramUrl(req.query && req.query.url);
-    if (!canonical) return res.json({ stages, error: 'INVALID_URL' });
-    stages.normalize = 'ok';
-    let info;
-    try { info = await extractMedia(canonical); stages.extract = 'ok:' + info.type; }
-    catch (e) { stages.extract = 'FAIL:' + e.message; return res.json({ stages }); }
-    if (info.type !== 'video' || !info.url) { stages.video = 'NO_VIDEO'; return res.json({ stages }); }
-    stages.videoUrl = info.url.slice(0, 90);
-    let buf;
+  let converted = null;
+  for (const vurl of candidates.slice(0, 4)) {
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const inFile = path.join(os.tmpdir(), `is-in-${id}.mp4`);
+    const outFile = path.join(os.tmpdir(), `is-out-${id}.mp3`);
     try {
-      const up = await fetch(info.url, {
+      const up = await fetch(vurl, {
         headers: { 'User-Agent': UA, Referer: 'https://www.instagram.com/' },
         signal: AbortSignal.timeout(45000),
       });
-      stages.upstreamStatus = up.status;
-      if (!up.ok || !up.body) throw new Error('upstream-' + up.status);
-      buf = Buffer.from(await up.arrayBuffer());
-      stages.downloadedBytes = buf.length;
-      stages.fileHead = buf.slice(4, 12).toString();
-    } catch (e) { stages.download = 'FAIL:' + e.message; return res.json({ stages }); }
-    const id = 'diag' + Date.now().toString(36);
-    const inFile = path.join(os.tmpdir(), `is-in-${id}.mp4`);
-    const outFile = path.join(os.tmpdir(), `is-out-${id}.mp3`);
-    fs.writeFileSync(inFile, buf);
-    const r = await new Promise((resolve) => {
-      const p = spawn(ffmpegPath, ['-y', '-i', inFile, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', '-loglevel', 'error', outFile]);
-      let se = '';
-      const t = setTimeout(() => { p.kill('SIGKILL'); resolve({ timeout: true, se }); }, 60000);
-      p.stderr.on('data', (d) => { se += d.toString().slice(0, 800); });
-      p.on('error', (e) => { clearTimeout(t); resolve({ spawnError: e.message, se }); });
-      p.on('close', (code) => { clearTimeout(t); resolve({ code, se, outExists: fs.existsSync(outFile) }); });
+      if (!up.ok || !up.body) throw new Error('upstream');
+      const buf = Buffer.from(await up.arrayBuffer());
+      if (buf.length < 1024 || buf.length > 60 * 1024 * 1024) throw new Error('size');
+      fs.writeFileSync(inFile, buf);
+      const ok = await new Promise((resolve) => {
+        const p = spawn(ffmpegPath, [
+          '-y', '-i', inFile, '-vn',
+          '-acodec', 'libmp3lame', '-q:a', '4',
+          '-loglevel', 'error', outFile,
+        ]);
+        const t = setTimeout(() => {
+          p.kill('SIGKILL');
+          resolve(false);
+        }, 90000);
+        p.on('error', () => {
+          clearTimeout(t);
+          resolve(false);
+        });
+        p.on('close', (code) => {
+          clearTimeout(t);
+          resolve(code === 0 && fs.existsSync(outFile) && fs.statSync(outFile).size > 1024);
+        });
+      });
+      fs.unlink(inFile, () => {});
+      if (ok) {
+        converted = { file: outFile, id };
+        break;
+      }
+      fs.unlink(outFile, () => {});
+    } catch (e) {
+      fs.unlink(inFile, () => {});
+      fs.unlink(outFile, () => {});
+      console.error('[instasave] /api/audio variant failed:', e.message);
+    }
+  }
+  if (!converted) {
+    return res.status(422).json({
+      ok: false, code: 'NO_AUDIO',
+      message: 'This video has no audio track to convert. Try another reel or video.',
     });
-    stages.ffmpeg = r;
-    fs.unlink(inFile, () => {}); fs.unlink(outFile, () => {});
-    return res.json({ stages });
-  } catch (e) { stages.fatal = e.message; return res.json({ stages }); }
+  }
+  res.setHeader('Content-Type', 'audio/mpeg');
+  res.setHeader('Content-Disposition', `attachment; filename="instasave-audio-${converted.id}.mp3"`);
+  res.setHeader('Cache-Control', 'no-store');
+  const stream = fs.createReadStream(converted.file);
+  stream.on('close', () => fs.unlink(converted.file, () => {}));
+  stream.on('error', () => fs.unlink(converted.file, () => {}));
+  stream.pipe(res);
 });
 
 /* ---------------- Profile picture (HD) ---------------- */
