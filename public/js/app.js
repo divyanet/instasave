@@ -3,7 +3,7 @@
   'use strict';
 
   var form = document.getElementById('dl-form');
-  if (!form) return;
+  if (form) {
   var input = document.getElementById('ig-url');
   var btn = document.getElementById('dl-btn');
   var status = document.getElementById('status');
@@ -178,6 +178,18 @@
     });
   });
 
+
+  // Paste helper: if clipboard holds a supported link, offer it.
+  input.addEventListener('focus', function () {
+    if (input.value) return;
+    if (!navigator.clipboard || !navigator.clipboard.readText) return;
+    navigator.clipboard.readText().then(function (t) {
+      t = (t || '').trim();
+      if (/instagram\.com\//i.test(t) || /facebook\.com\//i.test(t) || /fb\.watch\//i.test(t)) input.value = t;
+    }).catch(function () {});
+  });
+  } // end if (form) — theme toggle, contact form and paste helper run on every page.
+
   // Theme toggle: dark <-> light, persisted, respects OS preference on first visit.
   var themeBtn = document.querySelector('.theme-toggle');
   var metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -232,13 +244,4 @@
     });
   }
 
-  // Paste helper: if clipboard holds a supported link, offer it.
-  input.addEventListener('focus', function () {
-    if (input.value) return;
-    if (!navigator.clipboard || !navigator.clipboard.readText) return;
-    navigator.clipboard.readText().then(function (t) {
-      t = (t || '').trim();
-      if (/instagram\.com\//i.test(t) || /facebook\.com\//i.test(t) || /fb\.watch\//i.test(t)) input.value = t;
-    }).catch(function () {});
-  });
 })();
