@@ -595,6 +595,16 @@ app.get('/api/diag2', async (req, res) => {
     const { videos, dashAudio } = html ? await extractAllVideoUrls(canonical) : { videos: [], dashAudio: null };
     st.videos = videos.length;
     st.dashAudio = !!dashAudio;
+    try {
+      const mm = html.match(/"video_dash_manifest":"((?:[^"\\]|\\.)*)"/);
+      st.manifestMatch = !!mm;
+      if (mm) {
+        let mpd2 = decodeEntities(JSON.parse('"' + mm[1] + '"'));
+        const ai = mpd2.indexOf('contentType="audio"');
+        st.audioAdapt = ai === -1 ? 'ABSENT' : mpd2.slice(ai, ai + 160);
+        st.mpdLen = mpd2.length;
+      }
+    } catch (e) { st.manifestErr = e.message; }
     st.firstVideoHost = videos[0] ? new URL(videos[0]).hostname : null;
     for (const [i, vurl] of [...videos.slice(0,3), ...(dashAudio?[dashAudio]:[])].entries()) {
       const t1 = Date.now();
