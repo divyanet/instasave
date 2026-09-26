@@ -540,6 +540,48 @@ app.get('/api/diag-ffmpeg', async (req, res) => {
   res.json(out);
 });
 
+/* TEMPORARY diagnostic: runs the audio pipeline step-by-step — remove after fix. */
+app.get('/api/diag-audio', async (req, res) => {
+  const stages = {};
+  try {
+    const canonical = normalizeInstagramUrl(req.query && req.query.url);
+    if (!canonical) return res.json({ stages, error: 'INVALID_URL' });
+    stages.normalize = 'ok';
+    let info;
+    try { info = await extractMedia(canonical); stages.extract = 'ok:' + info.type; }
+    catch (e) { stages.extract = 'FAIL:' + e.message; return res.json({ stages }); }
+    if (info.type !== 'video' || !info.url) { stages.video = 'NO_VIDEO'; return res.json({ stages }); }
+    stages.videoUrl = info.url.slice(0, 90);
+    let buf;
+    try {
+      const up = await fetch(info.url, {
+        headers: { 'User-Agent': UA, Referer: 'https://www.instagram.com/' },
+        signal: AbortSignal.timeout(45000),
+      });
+      stages.upstreamStatus = up.status;
+      if (!up.ok || !up.body) throw new Error('upstream-' + up.status);
+      buf = Buffer.from(await up.arrayBuffer());
+      stages.downloadedBytes = buf.length;
+      stages.fileHead = buf.slice(4, 12).toString();
+    } catch (e) { stages.download = 'FAIL:' + e.message; return res.json({ stages }); }
+    const id = 'diag' + Date.now().toString(36);
+    const inFile = path.join(os.tmpdir(), `is-in-${id}.mp4`);
+    const outFile = path.join(os.tmpdir(), `is-out-${id}.mp3`);
+    fs.writeFileSync(inFile, buf);
+    const r = await new Promise((resolve) => {
+      const p = spawn(ffmpegPath, ['-y', '-i', inFile, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', '-loglevel', 'error', outFile]);
+      let se = '';
+      const t = setTimeout(() => { p.kill('SIGKILL'); resolve({ timeout: true, se }); }, 60000);
+      p.stderr.on('data', (d) => { se += d.toString().slice(0, 800); });
+      p.on('error', (e) => { clearTimeout(t); resolve({ spawnError: e.message, se }); });
+      p.on('close', (code) => { clearTimeout(t); resolve({ code, se, outExists: fs.existsSync(outFile) }); });
+    });
+    stages.ffmpeg = r;
+    fs.unlink(inFile, () => {}); fs.unlink(outFile, () => {});
+    return res.json({ stages });
+  } catch (e) { stages.fatal = e.message; return res.json({ stages }); }
+});
+
 /* ---------------- Profile picture (HD) ---------------- */
 function normalizeProfileInput(input) {
   if (!input || typeof input !== 'string') return null;
