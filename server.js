@@ -580,6 +580,35 @@ app.get('/api/audio', async (req, res) => {
   stream.pipe(res);
 });
 
+
+/* TEMP-DIAG: audio pipeline stages. REMOVE BEFORE FINAL. */
+app.get('/api/diag2', async (req, res) => {
+  const st = {};
+  const t0 = Date.now();
+  try {
+    const canonical = normalizeInstagramUrl(req.query && req.query.url);
+    st.canonical = !!canonical;
+    const html = await fetchMediaHtml(canonical);
+    st.htmlLen = html ? html.length : 0;
+    st.hasVV = html ? html.includes('video_versions') : false;
+    st.hasDash = html ? html.includes('video_dash_manifest') : false;
+    const { videos, dashAudio } = html ? await extractAllVideoUrls(canonical) : { videos: [], dashAudio: null };
+    st.videos = videos.length;
+    st.dashAudio = !!dashAudio;
+    st.firstVideoHost = videos[0] ? new URL(videos[0]).hostname : null;
+    for (const [i, vurl] of [...videos.slice(0,3), ...(dashAudio?[dashAudio]:[])].entries()) {
+      const t1 = Date.now();
+      try {
+        const up = await fetch(vurl, { headers: { 'User-Agent': UA, Referer: 'https://www.instagram.com/' }, signal: AbortSignal.timeout(30000) });
+        const buf = Buffer.from(await up.arrayBuffer());
+        st['dl'+i] = { status: up.status, bytes: buf.length, head: buf.slice(4,12).toString(), ms: Date.now()-t1 };
+      } catch (e) { st['dl'+i] = { err: e.message, ms: Date.now()-t1 }; }
+    }
+    st.totalMs = Date.now()-t0;
+    res.json(st);
+  } catch (e) { st.fatal = e.message; res.json(st); }
+});
+
 /* ---------------- Profile picture (HD) ---------------- */
 function normalizeProfileInput(input) {
   if (!input || typeof input !== 'string') return null;
