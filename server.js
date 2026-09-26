@@ -1,21 +1,38 @@
 /**
- * InstaSave — Instagram Reels & Photo Downloader
- * Paste a public Instagram link, preview the media, download it.
+ * InstaSave — Instagram & Facebook media downloader
+ * Paste a public link, preview the media, download it.
  *
- * Extraction engine (3 strategies, best-first):
+ * Instagram extraction engine (3 strategies, best-first):
  *  1. Direct page fetch (browser UA) — full media JSON + og: tags.
  *     Works when Instagram serves the fetching IP (clean IP / proxy).
  *  2. Crawler-UA fetch — og:image thumbnail fallback.
  *  3. oEmbed API — title, author, thumbnail. Works from any server IP.
  *
+ * Extra tools:
+ *  - /api/audio        MP3 conversion of a reel/video (ffmpeg)
+ *  - /api/profile-pic  HD profile picture fetch
+ *  - /api/fb-extract   public Facebook video via og:video tags
+ *  - /api/story        honest stub (stories need a logged-in session)
+ *  - /api/contact      contact form inbox (logged server-side)
+ *
  * Stack: Node.js + Express. No client framework (fast = better SEO).
  */
 const express = require('express');
 const path = require('path');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+
+let ffmpegPath = null;
+try {
+  ffmpegPath = require('ffmpeg-static');
+} catch {
+  console.warn('[instasave] ffmpeg-static not available — /api/audio will be disabled');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SITE_URL = (process.env.SITE_URL || 'https://instasave.example.com').replace(/\/$/, '');
+const SITE_URL = (process.env.SITE_URL || 'https://instasave-nb5s.onrender.com').replace(/\/$/, '');
 
 app.use(express.json({ limit: '64kb' }));
 app.set('trust proxy', 1);
@@ -63,6 +80,12 @@ function normalizeInstagramUrl(input) {
 
 function decodeEntities(s) {
   return String(s)
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
+      try { return String.fromCodePoint(parseInt(h, 16)); } catch { return _; }
+    })
+    .replace(/&#(\d+);/g, (_, d) => {
+      try { return String.fromCodePoint(parseInt(d, 10)); } catch { return _; }
+    })
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#x27;/g, "'")
@@ -407,6 +430,256 @@ app.post('/api/extract', async (req, res) => {
   }
 });
 
+/* ---------------- Audio: reel/video -> MP3 (GET, returns file) ---------------- */
+app.get('/api/audio', async (req, res) => {
+  const canonical = normalizeInstagramUrl(req.query && req.query.url);
+  if (!canonical) {
+    return res.status(400).json({
+      ok: false, code: 'INVALID_URL',
+      message: 'Please paste a valid public Instagram link (instagram.com/reel/… or /p/…).',
+    });
+  }
+  if (!ffmpegPath) {
+    return res.status(503).json({
+      ok: false, code: 'NO_FFMPEG',
+      message: 'Audio conversion is temporarily unavailable. Please try again later.',
+    });
+  }
+  let info;
+  try {
+    info = await extractMedia(canonical);
+  } catch {
+    return res.status(404).json({
+      ok: false, code: 'NOT_FOUND',
+      message: 'Could not find media at this link. It may be private, deleted, or the link is wrong.',
+    });
+  }
+  if (info.type !== 'video' || !info.url) {
+    return res.status(422).json({
+      ok: false, code: 'NO_VIDEO',
+      message: 'This link has no downloadable video to convert. Audio works with reels and video posts.',
+    });
+  }
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const inFile = path.join(os.tmpdir(), `is-in-${id}.mp4`);
+  const outFile = path.join(os.tmpdir(), `is-out-${id}.mp3`);
+  const cleanup = () => {
+    fs.unlink(inFile, () => {});
+    fs.unlink(outFile, () => {});
+  };
+  try {
+    const up = await fetch(info.url, {
+      headers: { 'User-Agent': UA, Referer: 'https://www.instagram.com/' },
+      signal: AbortSignal.timeout(45000),
+    });
+    if (!up.ok || !up.body) throw new Error('upstream');
+    const buf = Buffer.from(await up.arrayBuffer());
+    if (buf.length > 60 * 1024 * 1024) throw new Error('too-big');
+    fs.writeFileSync(inFile, buf);
+    await new Promise((resolve, reject) => {
+      const p = spawn(ffmpegPath, [
+        '-y', '-i', inFile, '-vn',
+        '-acodec', 'libmp3lame', '-q:a', '4',
+        '-loglevel', 'error', outFile,
+      ]);
+      const t = setTimeout(() => {
+        p.kill('SIGKILL');
+        reject(new Error('timeout'));
+      }, 90000);
+      p.on('error', (e) => {
+        clearTimeout(t);
+        reject(e);
+      });
+      p.on('close', (code) => {
+        clearTimeout(t);
+        if (code === 0 && fs.existsSync(outFile)) resolve();
+        else reject(new Error('ffmpeg-exit-' + code));
+      });
+    });
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Disposition', `attachment; filename="instasave-audio-${id}.mp3"`);
+    res.setHeader('Cache-Control', 'no-store');
+    const stream = fs.createReadStream(outFile);
+    stream.on('close', cleanup);
+    stream.on('error', cleanup);
+    stream.pipe(res);
+  } catch {
+    cleanup();
+    return res.status(502).json({
+      ok: false, code: 'CONVERT_FAILED',
+      message: 'Could not convert this video to MP3. Please try another link.',
+    });
+  }
+});
+
+/* ---------------- Profile picture (HD) ---------------- */
+function normalizeProfileInput(input) {
+  if (!input || typeof input !== 'string') return null;
+  const raw = input.trim().replace(/^@/, '');
+  const m = raw.match(/(?:https?:\/\/)?(?:www\.|m\.)?instagram\.com\/([A-Za-z0-9._]+)/i);
+  const username = m ? m[1] : raw;
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(username)) return null;
+  return username;
+}
+
+app.post('/api/profile-pic', async (req, res) => {
+  const username = normalizeProfileInput(req.body && (req.body.username || req.body.url));
+  if (!username) {
+    return res.status(400).json({
+      ok: false, code: 'INVALID_INPUT',
+      message: 'Please enter a valid Instagram username (letters, numbers, . and _).',
+    });
+  }
+  try {
+    const r = await fetchText(`https://www.instagram.com/${username}/`, {
+      ua: UA, fullHeaders: true, timeoutMs: 20000,
+    });
+    if (!r.ok) throw new Error('fetch');
+    const html = await r.text();
+    let pic = null;
+    const hd = html.match(/"profile_pic_url_hd"\s*:\s*"(https:[^"]+)"/);
+    const sd = html.match(/"profile_pic_url"\s*:\s*"(https:[^"]+)"/);
+    const raw = hd ? hd[1] : sd ? sd[1] : null;
+    if (raw) pic = decodeEntities(raw).replace(/\\u0026/g, '&').replace(/\\/g, '');
+    if (!pic) {
+      const og = metaValues(html, 'og:image')[0];
+      if (og && /cdninstagram|fbcdn/i.test(og)) pic = og;
+    }
+    if (!pic) {
+      return res.status(404).json({
+        ok: false, code: 'NOT_FOUND',
+        message: 'Could not fetch this profile picture. The account may be private or the username may be wrong.',
+      });
+    }
+    return res.json({
+      ok: true, type: 'image',
+      source: `https://www.instagram.com/${username}/`,
+      url: pic, images: [pic], thumbnail: pic,
+      title: `@${username} — profile picture`,
+      author: username,
+    });
+  } catch {
+    return res.status(502).json({
+      ok: false, code: 'FETCH_FAILED',
+      message: 'Could not reach Instagram. Please try again in a moment.',
+    });
+  }
+});
+
+/* ---------------- Facebook public video ----------------
+   Strategy: m.facebook.com + mobile Safari UA serves og:video with a
+   direct xx.fbcdn.net MP4 for public reels/videos. Fallbacks: the URL
+   as-is with mobile UA (covers fb.watch), then the crawler UA. */
+const MOBILE_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+
+async function strategyFacebook(url) {
+  const tries = [];
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^(www|m|web)\./, '');
+    if (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.com') {
+      u.hostname = 'm.facebook.com';
+      tries.push([u.toString(), MOBILE_UA]);
+    }
+  } catch {
+    /* fall through to generic tries */
+  }
+  tries.push([url, MOBILE_UA]);
+  tries.push([url, CRAWLER_UA]);
+  for (const [turl, ua] of tries) {
+    let r;
+    try {
+      r = await fetchText(turl, { ua, timeoutMs: 20000 });
+    } catch {
+      continue;
+    }
+    if (!r.ok) continue;
+    const html = await r.text();
+    const vids = [...metaValues(html, 'og:video:secure_url'), ...metaValues(html, 'og:video')]
+      .filter((x) => /^https:\/\//.test(x));
+    if (!vids.length) continue;
+    const title = cleanTitle(metaValues(html, 'og:title')[0] || '');
+    const imgs = [...new Set(metaValues(html, 'og:image'))];
+    return { videoUrl: vids[0], title, thumbnail: imgs[0] || null };
+  }
+  return null;
+}
+function normalizeFacebookUrl(input) {
+  if (!input || typeof input !== 'string') return null;
+  let raw = input.trim();
+  if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase().replace(/^(www|m|web)\./, '');
+  if (host !== 'facebook.com' && host !== 'fb.watch' && host !== 'fb.com') return null;
+  return u.toString();
+}
+
+app.post('/api/fb-extract', async (req, res) => {
+  const url = normalizeFacebookUrl(req.body && req.body.url);
+  if (!url) {
+    return res.status(400).json({
+      ok: false, code: 'INVALID_URL',
+      message: 'Please paste a valid Facebook video link (facebook.com or fb.watch).',
+    });
+  }
+  try {
+    const found = await strategyFacebook(url);
+    if (!found) {
+      return res.status(404).json({
+        ok: false, code: 'NOT_FOUND',
+        message: 'Could not fetch this Facebook video. It may be private, age-restricted, or login-required — we only support public videos.',
+      });
+    }
+    return res.json({
+      ok: true, type: 'video', source: url,
+      url: found.videoUrl, images: [], thumbnail: found.thumbnail,
+      title: found.title || 'Facebook video',
+    });
+  } catch {
+    return res.status(502).json({
+      ok: false, code: 'FETCH_FAILED',
+      message: 'Could not reach Facebook. Please check the link and try again.',
+    });
+  }
+});
+
+/* ---------------- Stories: honest stub ----------------
+   Instagram serves stories only to logged-in sessions. We never ask for
+   credentials, so story downloads are not offered. This endpoint exists so
+   the UI can show a clear, honest explanation instead of failing silently. */
+app.post('/api/story', (req, res) =>
+  res.status(400).json({
+    ok: false, code: 'LOGIN_REQUIRED',
+    message:
+      'Instagram only shows stories to logged-in accounts, so no legitimate no-login tool can download them. ' +
+      'We will never ask for your Instagram password — any site that does is not safe.',
+  })
+);
+
+/* ---------------- Contact form ---------------- */
+app.post('/api/contact', (req, res) => {
+  const { name, email, message } = req.body || {};
+  if (!name || !email || !message || typeof message !== 'string') {
+    return res.status(400).json({ ok: false, message: 'Please fill in your name, email and message.' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+    return res.status(400).json({ ok: false, message: 'Please enter a valid email address.' });
+  }
+  if (message.length > 5000) {
+    return res.status(400).json({ ok: false, message: 'Your message is too long (max 5000 characters).' });
+  }
+  console.log(
+    `[contact] ${String(name).slice(0, 80)} <${String(email).slice(0, 120)}>: ${message.slice(0, 300)}`
+  );
+  return res.json({ ok: true });
+});
+
 /**
  * Proxy download so the file saves directly (avoids new-tab / hotlink issues).
  * SSRF guard: only Instagram CDN hosts are allowed.
@@ -448,9 +721,17 @@ app.get('/api/download', async (req, res) => {
 const PAGES = {
   '/': 'index.html',
   '/instagram-reels-downloader': 'instagram-reels-downloader.html',
+  '/instagram-video-downloader': 'instagram-video-downloader.html',
   '/instagram-photo-downloader': 'instagram-photo-downloader.html',
+  '/instagram-audio-downloader': 'instagram-audio-downloader.html',
+  '/instagram-story-downloader': 'instagram-story-downloader.html',
+  '/instagram-profile-downloader': 'instagram-profile-downloader.html',
+  '/facebook-video-downloader': 'facebook-video-downloader.html',
   '/how-to-download': 'how-to-download.html',
   '/faq': 'faq.html',
+  '/privacy-policy': 'privacy-policy.html',
+  '/terms-of-service': 'terms-of-service.html',
+  '/contact': 'contact.html',
 };
 for (const [route, file] of Object.entries(PAGES)) {
   app.get(route, (req, res) => res.sendFile(path.join(__dirname, 'public', file)));
