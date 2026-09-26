@@ -52,7 +52,7 @@ npm start   # PORT env, default 3000
 ## Deploy (Render free tier)
 1. Push to GitHub, create Web Service: Node, branch `main`, build `npm install`, start `npm start`.
 2. Set env var `SITE_URL=https://<your-domain>` (used for absolute URLs if needed).
-3. Replace the placeholder `https://instasave.example.com` with the live domain in:
+3. Replace the placeholder `https://instasave-nb5s.onrender.com` with the live domain in:
    `public/index.html`, `public/instagram-reels-downloader.html`,
    `public/instagram-photo-downloader.html`, `public/how-to-download.html`,
    `public/faq.html`, `public/robots.txt`, `public/sitemap.xml`.
