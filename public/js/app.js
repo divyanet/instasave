@@ -8,6 +8,9 @@
   var btn = document.getElementById('dl-btn');
   var status = document.getElementById('status');
   var result = document.getElementById('result');
+  // Per-tool API override: audio/profile/fb/story pages set data-api on the form.
+  var api = form.getAttribute('data-api') || '/api/extract';
+  var isAudio = api === '/api/audio';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -84,20 +87,63 @@
     result.classList.add('show');
   }
 
+  /* Audio tool: the endpoint returns an MP3 file directly (or JSON on error). */
+  function renderAudio(blobUrl, title) {
+    result.innerHTML =
+      '<div class="result-card"><div class="rc-inner">' +
+      '<div class="audio-art" aria-hidden="true">🎵</div>' +
+      '<div class="result-meta">' +
+      '<span class="result-type">MP3 audio</span>' +
+      '<div class="result-title">' + esc(title || 'Instagram audio') + '</div>' +
+      '<div class="result-actions">' +
+      '<a class="btn btn-grad btn-sm" href="' + blobUrl + '" download="instasave-audio.mp3">⬇ Download MP3</a>' +
+      '</div></div></div></div>';
+    result.classList.add('show');
+  }
+
+  function handleAudio(url) {
+    setStatus('<span class="spinner"></span>Converting to MP3… this takes a few seconds.', 'loading');
+    fetch(api + '?url=' + encodeURIComponent(url))
+      .then(function (r) {
+        var ct = r.headers.get('content-type') || '';
+        if (!r.ok || ct.indexOf('application/json') !== -1) {
+          return r.json().then(function (j) { throw new Error(j.message || 'Conversion failed.'); });
+        }
+        return r.blob();
+      })
+      .then(function (blob) {
+        btn.disabled = false;
+        if (!blob || !blob.size) throw new Error('Empty audio file.');
+        var blobUrl = URL.createObjectURL(blob);
+        setStatus('✅ Your MP3 is ready.', 'ok');
+        renderAudio(blobUrl, url);
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        setStatus('❌ ' + esc(err.message || 'Something went wrong. Please try again.'), 'error');
+      });
+  }
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var url = input.value.trim();
     if (!url) {
-      setStatus('Please paste an Instagram link first.', 'error');
+      setStatus('Please paste a link first.', 'error');
       input.focus();
       return;
     }
     btn.disabled = true;
     result.classList.remove('show');
     result.innerHTML = '';
-    setStatus('<span class="spinner"></span>Fetching media from Instagram…', 'loading');
 
-    fetch('/api/extract', {
+    if (isAudio) {
+      handleAudio(url);
+      return;
+    }
+
+    setStatus('<span class="spinner"></span>Fetching media…', 'loading');
+
+    fetch(api, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: url }),
@@ -143,19 +189,56 @@
   }
   if (themeBtn) {
     themeBtn.addEventListener('click', function () {
-      var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      var cur = document.documentElement.getAttribute('data-theme') || 'light';
       applyTheme(cur === 'dark' ? 'light' : 'dark');
     });
     // sync label with the theme set by the head inline script
-    applyTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+    applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
   }
 
-  // Paste helper: if clipboard holds an instagram link, offer it.
+  // Contact form: POSTs to /api/contact and shows an inline confirmation.
+  var cform = document.getElementById('contact-form');
+  if (cform) {
+    cform.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var cstatus = document.getElementById('contact-status');
+      var cbtn = cform.querySelector('button[type="submit"]');
+      var data = {
+        name: (cform.querySelector('[name="name"]') || {}).value || '',
+        email: (cform.querySelector('[name="email"]') || {}).value || '',
+        message: (cform.querySelector('[name="message"]') || {}).value || '',
+      };
+      if (cbtn) cbtn.disabled = true;
+      if (cstatus) cstatus.innerHTML = '<span class="spinner"></span>Sending…';
+      fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (cbtn) cbtn.disabled = false;
+          if (!j.ok) {
+            if (cstatus) cstatus.innerHTML = '❌ ' + esc(j.message || 'Could not send. Please try again.');
+            return;
+          }
+          cform.reset();
+          if (cstatus) cstatus.innerHTML = '✅ Message sent — we usually reply within 48 hours.';
+        })
+        .catch(function () {
+          if (cbtn) cbtn.disabled = false;
+          if (cstatus) cstatus.innerHTML = '❌ Network error. Please try again.';
+        });
+    });
+  }
+
+  // Paste helper: if clipboard holds a supported link, offer it.
   input.addEventListener('focus', function () {
     if (input.value) return;
     if (!navigator.clipboard || !navigator.clipboard.readText) return;
     navigator.clipboard.readText().then(function (t) {
-      if (/instagram\.com\/(p|reel|reels|tv)\//i.test(t || '')) input.value = t.trim();
+      t = (t || '').trim();
+      if (/instagram\.com\//i.test(t) || /facebook\.com\//i.test(t) || /fb\.watch\//i.test(t)) input.value = t;
     }).catch(function () {});
   });
 })();
