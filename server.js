@@ -26,6 +26,10 @@ const os = require('os');
 let ffmpegPath = null;
 try {
   ffmpegPath = require('ffmpeg-static');
+  // Ensure the binary is executable (some build environments strip the bit).
+  try { fs.chmodSync(ffmpegPath, 0o755); } catch { /* ignore */ }
+  try { fs.accessSync(ffmpegPath, fs.constants.X_OK); }
+  catch { console.warn('[instasave] ffmpeg binary not executable:', ffmpegPath); ffmpegPath = null; }
 } catch {
   console.warn('[instasave] ffmpeg-static not available — /api/audio will be disabled');
 }
@@ -503,8 +507,9 @@ app.get('/api/audio', async (req, res) => {
     stream.on('close', cleanup);
     stream.on('error', cleanup);
     stream.pipe(res);
-  } catch {
+  } catch (err) {
     cleanup();
+    console.error('[instasave] /api/audio failed:', err && err.message);
     return res.status(502).json({
       ok: false, code: 'CONVERT_FAILED',
       message: 'Could not convert this video to MP3. Please try another link.',
