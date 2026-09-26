@@ -72,14 +72,14 @@
       ' <a class="btn btn-ghost btn-sm" href="' + esc(d.source) + '" target="_blank" rel="noopener">Open original ↗</a>';
 
     result.innerHTML =
-      '<div class="result-card">' +
+      '<div class="result-card"><div class="rc-inner">' +
       (d.thumbnail ? '<img class="result-thumb" src="' + esc(d.thumbnail) + '" alt="Media preview" loading="lazy">' : '') +
       '<div class="result-meta">' +
       '<span class="result-type">' + esc(typeLabel(d)) + '</span>' +
       '<div class="result-title">' + esc(d.title || 'Instagram media') + '</div>' +
       authorHtml +
       '<div class="result-actions">' + actions + '</div>' +
-      '</div></div>' + extra;
+      '</div></div></div>' + extra;
 
     result.classList.add('show');
   }
@@ -122,6 +122,33 @@
         setStatus('❌ Network error. Check your connection and try again.', 'error');
       });
   });
+
+  // Sample-link chips: fill the input and auto-submit.
+  Array.prototype.forEach.call(document.querySelectorAll('.sample-link'), function (chip) {
+    chip.addEventListener('click', function () {
+      input.value = chip.getAttribute('data-url') || '';
+      input.focus();
+      form.dispatchEvent(new Event('submit', { cancelable: true }));
+    });
+  });
+
+  // Theme toggle: dark <-> light, persisted, respects OS preference on first visit.
+  var themeBtn = document.querySelector('.theme-toggle');
+  var metaTheme = document.querySelector('meta[name="theme-color"]');
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('instasave_theme', t); } catch (e) {}
+    if (themeBtn) themeBtn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+    if (metaTheme) metaTheme.setAttribute('content', t === 'dark' ? '#07070d' : '#f5f5fa');
+  }
+  if (themeBtn) {
+    themeBtn.addEventListener('click', function () {
+      var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      applyTheme(cur === 'dark' ? 'light' : 'dark');
+    });
+    // sync label with the theme set by the head inline script
+    applyTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+  }
 
   // Paste helper: if clipboard holds an instagram link, offer it.
   input.addEventListener('focus', function () {
