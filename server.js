@@ -11,7 +11,7 @@
  * Extra tools:
  *  - /api/audio        MP3 conversion of a reel/video (ffmpeg)
  *  - /api/profile-pic  HD profile picture fetch
- *  - /api/fb-extract   public Facebook video via og:video tags
+ *  - /api/fb-extract   public Facebook video via yt-dlp (og:video fallback)
  *  - /api/story        honest stub (stories need a logged-in session)
  *  - /api/contact      contact form inbox (logged server-side)
  *
@@ -19,7 +19,7 @@
  */
 const express = require('express');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 
@@ -636,13 +636,83 @@ app.post('/api/profile-pic', async (req, res) => {
 });
 
 /* ---------------- Facebook public video ----------------
-   Strategy: m.facebook.com + mobile Safari UA serves og:video with a
-   direct xx.fbcdn.net MP4 for public reels/videos. Fallbacks: the URL
-   as-is with mobile UA (covers fb.watch), then the crawler UA. */
+   Primary strategy: yt-dlp's facebook extractor resolves public
+   reels/videos to a direct xx.fbcdn.net progressive MP4 (no login).
+   Fallbacks: legacy og:video scraping (m.facebook.com + mobile UA,
+   then the URL as-is, then the crawler UA) — kept in case Facebook
+   restores those tags. */
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 
+/* Resolve a yt-dlp executable once at startup:
+   1) ./yt-dlp-bin  (standalone binary downloaded by the build command)
+   2) yt-dlp        (on PATH, e.g. pip install yt-dlp)
+   3) python3 -m yt_dlp (module form, no PATH dependency) */
+let YTDLP = null;
+(function resolveYtDlp() {
+  const local = path.join(__dirname, 'yt-dlp-bin');
+  try {
+    fs.accessSync(local, fs.constants.X_OK);
+    YTDLP = { cmd: local, args: [] };
+    console.log('[instasave] yt-dlp: using ./yt-dlp-bin');
+    return;
+  } catch { /* not present */ }
+  try {
+    require('child_process').execFileSync('yt-dlp', ['--version'], { timeout: 15000, stdio: 'pipe' });
+    YTDLP = { cmd: 'yt-dlp', args: [] };
+    console.log('[instasave] yt-dlp: using PATH binary');
+    return;
+  } catch { /* not on PATH */ }
+  try {
+    require('child_process').execFileSync('python3', ['-m', 'yt_dlp', '--version'], { timeout: 15000, stdio: 'pipe' });
+    YTDLP = { cmd: 'python3', args: ['-m', 'yt_dlp'] };
+    console.log('[instasave] yt-dlp: using python3 -m yt_dlp');
+    return;
+  } catch { /* unavailable */ }
+  console.warn('[instasave] yt-dlp not found — /api/fb-extract falls back to og:video scraping');
+})();
+
+/* Facebook via yt-dlp.
+   Facebook no longer serves og:video tags to scrapers (mobile pages only
+   carry og:title/og:image now; the full page is a JS shell), so the
+   yt-dlp facebook extractor is the primary strategy — it resolves public
+   videos to direct progressive MP4s (hd/sd, video+audio) with no login.
+   No shell is used (execFile + args array), so a pasted URL can never
+   become shell injection; the URL is also pre-validated as facebook/fb.watch. */
+function strategyFacebookYtDlp(url) {
+  return new Promise((resolve) => {
+    if (!YTDLP) return resolve(null);
+    const args = [
+      ...YTDLP.args,
+      '--no-playlist', '--skip-download', '--no-warnings',
+      '--socket-timeout', '15', '--retries', '2',
+      '-f', 'hd/sd/best[ext=mp4]/best',
+      '--print', '%(url)s\n%(title)s\n%(thumbnail)s',
+      '--', url,
+    ];
+    execFile(YTDLP.cmd, args, { timeout: 60000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => {
+      if (err) {
+        console.warn('[fb-extract] yt-dlp failed:', String((err && err.message) || err).slice(0, 140));
+        return resolve(null);
+      }
+      const lines = String(stdout).split('\n');
+      const videoUrl = (lines[0] || '').trim();
+      if (!/^https:\/\//.test(videoUrl)) return resolve(null);
+      resolve({
+        videoUrl,
+        title: cleanTitle(lines[1] || ''),
+        thumbnail: (lines[2] || '').trim() || null,
+      });
+    });
+  });
+}
+
 async function strategyFacebook(url) {
+  // Primary: yt-dlp resolves public FB videos to direct MP4s.
+  try {
+    const viaYtDlp = await strategyFacebookYtDlp(url);
+    if (viaYtDlp) return viaYtDlp;
+  } catch { /* fall through to legacy scraping */ }
   const tries = [];
   try {
     const u = new URL(url);
