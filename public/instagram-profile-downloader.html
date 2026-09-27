@@ -19,7 +19,7 @@
 <meta name="twitter:title" content="Instagram Profile Picture Downloader — Save DP in HD">
 <meta name="twitter:description" content="Download public Instagram profile pictures in HD. No login.">
 <meta name="twitter:image" content="https://instasave-nb5s.onrender.com/og-image.png">
-<link rel="stylesheet" href="/css/style.css?v=6">
+<link rel="stylesheet" href="/css/style.css?v=7">
 <script>try{var t=localStorage.getItem('instasave_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,7 +31,7 @@
 {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://instasave-nb5s.onrender.com/"},{"@type":"ListItem","position":2,"name":"Instagram Profile Picture Downloader","item":"https://instasave-nb5s.onrender.com/instagram-profile-downloader"}]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I download an Instagram profile picture?","acceptedAnswer":{"@type":"Answer","text":"Enter the username or paste the profile link into the box above and hit Download. We fetch the same profile photo file Instagram serves — exactly as displayed on Instagram."}},{"@type":"Question","name":"Can I download the profile picture of a private account?","acceptedAnswer":{"@type":"Answer","text":"The profile picture itself, yes — Instagram keeps avatars public even on private accounts. The account's posts, stories and followers stay protected and inaccessible."}},{"@type":"Question","name":"What size are Instagram profile pictures?","acceptedAnswer":{"@type":"Answer","text":"Instagram displays profile pictures as a small circle (around 150×150 pixels). We give you the same profile photo file Instagram serves — but larger \"HD\" upscales aren't reliably available, so we don't promise them."}},{"@type":"Question","name":"Do I need the full profile link or just the username?","acceptedAnswer":{"@type":"Answer","text":"Either works. Type the username (e.g. instagram ) or paste the full profile URL ( instagram.com/username )."}},{"@type":"Question","name":"Is it legal to download someone's profile picture?","acceptedAnswer":{"@type":"Answer","text":"Profile pictures are public by design. Keep downloads for personal use, and never use someone else's photo to impersonate them — that's against Instagram's rules and often the law."}},{"@type":"Question","name":"Will the person know I downloaded their profile picture?","acceptedAnswer":{"@type":"Answer","text":"No. Downloading a public profile picture leaves no trace — Instagram doesn't notify the account owner, and InstaSave never logs what you download."}},{"@type":"Question","name":"Can I zoom into a profile picture without downloading it?","acceptedAnswer":{"@type":"Answer","text":"Downloading gives you the same profile photo file Instagram displays, so you can view it freely outside the app's tiny circular crop."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I download an Instagram profile picture?","acceptedAnswer":{"@type":"Answer","text":"Enter the username or paste the profile link into the box above and hit Download. We fetch the same profile photo file Instagram serves — exactly as displayed on Instagram."}},{"@type":"Question","name":"Can I download the profile picture of a private account?","acceptedAnswer":{"@type":"Answer","text":"The profile picture itself, yes — Instagram keeps avatars public even on private accounts. The account's posts, stories and followers stay protected and inaccessible."}},{"@type":"Question","name":"What size are Instagram profile pictures?","acceptedAnswer":{"@type":"Answer","text":"Instagram displays profile pictures as a small circle (around 150×150 pixels). We give you the same profile photo file Instagram serves — but larger \"HD\" upscales aren't reliably available, so we don't promise them."}},{"@type":"Question","name":"Do I need the full profile link or just the username?","acceptedAnswer":{"@type":"Answer","text":"Either works. Type the username (e.g. instagram) or paste the full profile URL (instagram.com/username)."}},{"@type":"Question","name":"Is it legal to download someone's profile picture?","acceptedAnswer":{"@type":"Answer","text":"Profile pictures are public by design. Keep downloads for personal use, and never use someone else's photo to impersonate them — that's against Instagram's rules and often the law."}},{"@type":"Question","name":"Will the person know I downloaded their profile picture?","acceptedAnswer":{"@type":"Answer","text":"No. Downloading a public profile picture leaves no trace — Instagram doesn't notify the account owner, and InstaSave never logs what you download."}},{"@type":"Question","name":"Can I zoom into a profile picture without downloading it?","acceptedAnswer":{"@type":"Answer","text":"Downloading gives you the same profile photo file Instagram displays, so you can view it freely outside the app's tiny circular crop."}},{"@type":"Question","name":"Can I download a profile picture on my phone?","acceptedAnswer":{"@type":"Answer","text":"Yes. Enter the username on this page in your mobile browser and the full-size profile photo appears with a download button — it saves straight to your phone."}},{"@type":"Question","name":"What if the username doesn't exist?","acceptedAnswer":{"@type":"Answer","text":"We'll tell you the profile wasn't found. Double-check the spelling — usernames are exact, and the profile may have been renamed or deleted."}},{"@type":"Question","name":"Can I use this without an Instagram account?","acceptedAnswer":{"@type":"Answer","text":"Yes. No login is needed at any step — just the username. Profile pictures are public by design, so this works even if you don't have Instagram."}},{"@type":"Question","name":"Does this work for business and creator accounts?","acceptedAnswer":{"@type":"Answer","text":"Yes. Every Instagram profile type — personal, business, creator, verified — has a public profile picture, so any username works."}}]}
 </script>
 </head>
 <body>
@@ -63,8 +63,7 @@
       
 <p class="sub">Download any <strong>public</strong> Instagram profile picture — just enter a username. No login, no app.</p>
     
-</div></section>
-<section><div class="wrap"><div class="dl-card">
+<div class="dl-card">
   <form class="dl-form" id="dl-form" data-api="/api/profile-pic">
           <svg class="form-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
     <input type="text" id="ig-url" name="url" placeholder="Username or profile link… e.g. instagram.com/username" autocomplete="off" spellcheck="false" aria-label="Instagram username or profile link">
@@ -73,11 +72,18 @@
   
   <div class="status" id="status" role="status" aria-live="polite"></div>
   <div class="result" id="result"></div>
-</div></div></section>
+</div>
+</div></section>
 <section class="section alt"><div class="wrap"><div class="prose">
         <h2>See profile pictures up close</h2>
         <p>Instagram shows profile pictures as a tiny cropped circle — tap it and nothing happens. <strong>InstaSave's profile picture downloader</strong> fetches the profile photo file as displayed on Instagram: enter any username or paste a profile link and get the same picture the profile shows.</p>
         <p>Handy for checking a logo in detail, saving a reference, or viewing a picture that's too small to see in the app. Profile pictures are public by design — even private accounts have public avatars — so this works for any Instagram profile.</p>
+      </div>
+    </div></section>
+<section class="section"><div class="wrap"><div class="prose">
+        <h2>Why view Instagram profile pictures in full size?</h2>
+        <p>Profile photos are tiny by design, but sometimes you need a closer look — checking a brand logo, recognizing an old friend, or saving a reference image. A <strong>profile picture downloader</strong> shows you the full image Instagram stores, with no screenshots or guesswork.</p>
+        <p>It works for every profile type — personal, business, creator, verified — because avatars are public by design. For full posts from public accounts, try our <a href="/instagram-photo-downloader">photo downloader</a> or <a href="/instagram-video-downloader">video downloader</a>.</p>
       </div>
     </div></section>
 <section class="section"><div class="wrap"><div class="section-head"><h2>How to download a profile picture — <span class="grad-text">3 steps</span></h2>
@@ -100,6 +106,10 @@
         <details class="faq-item"><summary>Is it legal to download someone's profile picture?</summary><div class="faq-a">Profile pictures are public by design. Keep downloads for personal use, and never use someone else's photo to impersonate them — that's against Instagram's rules and often the law.</div></details>
         <details class="faq-item"><summary>Will the person know I downloaded their profile picture?</summary><div class="faq-a">No. Downloading a public profile picture leaves no trace — Instagram doesn't notify the account owner, and InstaSave never logs what you download.</div></details>
         <details class="faq-item"><summary>Can I zoom into a profile picture without downloading it?</summary><div class="faq-a">Downloading gives you the same profile photo file Instagram displays, so you can view it freely outside the app's tiny circular crop.</div></details>
+        <details class="faq-item"><summary>Can I download a profile picture on my phone?</summary><div class="faq-a">Yes. Enter the username on this page in your mobile browser and the full-size profile photo appears with a download button — it saves straight to your phone.</div></details>
+        <details class="faq-item"><summary>What if the username doesn't exist?</summary><div class="faq-a">We'll tell you the profile wasn't found. Double-check the spelling — usernames are exact, and the profile may have been renamed or deleted.</div></details>
+        <details class="faq-item"><summary>Can I use this without an Instagram account?</summary><div class="faq-a">Yes. No login is needed at any step — just the username. Profile pictures are public by design, so this works even if you don't have Instagram.</div></details>
+        <details class="faq-item"><summary>Does this work for business and creator accounts?</summary><div class="faq-a">Yes. Every Instagram profile type — personal, business, creator, verified — has a public profile picture, so any username works.</div></details>
       </div>
     </div></section>
 <section class="section"><div class="wrap"><div class="section-head"><h2>More <span class="grad-text">download tools</span></h2>

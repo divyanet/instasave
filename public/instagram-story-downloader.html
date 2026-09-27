@@ -19,7 +19,7 @@
 <meta name="twitter:title" content="Instagram Story Downloader — What Really Works">
 <meta name="twitter:description" content="The honest truth about Instagram story downloads.">
 <meta name="twitter:image" content="https://instasave-nb5s.onrender.com/og-image.png">
-<link rel="stylesheet" href="/css/style.css?v=6">
+<link rel="stylesheet" href="/css/style.css?v=7">
 <script>try{var t=localStorage.getItem('instasave_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,7 +31,7 @@
 {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://instasave-nb5s.onrender.com/"},{"@type":"ListItem","position":2,"name":"Instagram Story Downloader","item":"https://instasave-nb5s.onrender.com/instagram-story-downloader"}]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I download Instagram stories without logging in?","acceptedAnswer":{"@type":"Answer","text":"No. Instagram only serves stories to logged-in users, so no legitimate no-login tool can fetch them. Sites claiming otherwise use fake spinners, demand shady \"verifications,\" or harvest your login."}},{"@type":"Question","name":"Why can't story tools work like reel downloaders?","acceptedAnswer":{"@type":"Answer","text":"Reels and posts have public preview pages that don't require login. Stories are session-gated by design — Instagram's servers refuse to hand story media to anonymous requests."}},{"@type":"Question","name":"Can I download stories from a private account?","acceptedAnswer":{"@type":"Answer","text":"No — and any tool claiming to fetch private stories is lying or phishing. Private content requires the account owner's login."}},{"@type":"Question","name":"What is the legitimate way to save someone's story?","acceptedAnswer":{"@type":"Answer","text":"Ask them to send it to you, or use Instagram's built-in share/save features (public stories can be shared to your story or sent via DM). For your own stories, save them from your archive or highlights."}},{"@type":"Question","name":"Can I download my own story highlights?","acceptedAnswer":{"@type":"Answer","text":"Yes, easily. Open your profile, tap a highlight, tap the story, then More (⋯) → Save. No third-party tool needed, and the quality is the original."}},{"@type":"Question","name":"Is it legal to download someone else's story?","acceptedAnswer":{"@type":"Answer","text":"Stories are the creator's copyrighted content. Save them only with permission and for personal use — never repost someone else's story as your own."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I download Instagram stories without logging in?","acceptedAnswer":{"@type":"Answer","text":"No. Instagram only serves stories to logged-in users, so no legitimate no-login tool can fetch them. Sites claiming otherwise use fake spinners, demand shady \"verifications,\" or harvest your login."}},{"@type":"Question","name":"Why can't story tools work like reel downloaders?","acceptedAnswer":{"@type":"Answer","text":"Reels and posts have public preview pages that don't require login. Stories are session-gated by design — Instagram's servers refuse to hand story media to anonymous requests."}},{"@type":"Question","name":"Can I download stories from a private account?","acceptedAnswer":{"@type":"Answer","text":"No — and any tool claiming to fetch private stories is lying or phishing. Private content requires the account owner's login."}},{"@type":"Question","name":"What is the legitimate way to save someone's story?","acceptedAnswer":{"@type":"Answer","text":"Ask them to send it to you, or use Instagram's built-in share/save features (public stories can be shared to your story or sent via DM). For your own stories, save them from your archive or highlights."}},{"@type":"Question","name":"Can I download my own story highlights?","acceptedAnswer":{"@type":"Answer","text":"Yes, easily. Open your profile, tap a highlight, tap the story, then More (⋯) → Save. No third-party tool needed, and the quality is the original."}},{"@type":"Question","name":"Is it legal to download someone else's story?","acceptedAnswer":{"@type":"Answer","text":"Stories are the creator's copyrighted content. Save them only with permission and for personal use — never repost someone else's story as your own."}},{"@type":"Question","name":"Can I view someone's story without them knowing?","acceptedAnswer":{"@type":"Answer","text":"Not through any legitimate tool. Story views are tracked by Instagram itself, and any site claiming anonymous story viewing without a login is misleading you — treat it as a red flag."}},{"@type":"Question","name":"Do story downloader apps actually work?","acceptedAnswer":{"@type":"Answer","text":"Most don't. They typically show fake progress bars, then push you to install other apps or hand over your Instagram login. A real story fetch requires an Instagram session, which no honest no-login site has."}},{"@type":"Question","name":"Can I download my own archived stories?","acceptedAnswer":{"@type":"Answer","text":"Yes — from inside Instagram. Open your profile, tap the menu, go to Archive, and your past stories are there to save or re-share. No third-party tool needed."}},{"@type":"Question","name":"Why do some sites ask for my Instagram login?","acceptedAnswer":{"@type":"Answer","text":"Because stories are session-gated, those sites need your login to fetch them — and that's exactly why you should never give it. Handing your credentials to a random site is how accounts get stolen."}}]}
 </script>
 </head>
 <body>
@@ -63,8 +63,7 @@
       
 <p class="sub">We won't lie to you: <strong>Instagram stories require a login</strong>, so no legitimate no-login tool can fetch them. Here's what actually works.</p>
     
-</div></section>
-<section><div class="wrap"><div class="dl-card">
+<div class="dl-card">
   <form class="dl-form" id="dl-form" data-api="/api/story">
           <svg class="form-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
     <input type="url" id="ig-url" name="url" placeholder="Paste story link… e.g. instagram.com/stories/…" autocomplete="off" spellcheck="false" aria-label="Instagram story link">
@@ -73,12 +72,19 @@
   
   <div class="status" id="status" role="status" aria-live="polite"></div>
   <div class="result" id="result"></div>
-</div></div></section>
+</div>
+</div></section>
 <section class="section alt"><div class="wrap"><div class="prose">
         <h2>The honest truth about story downloaders</h2>
         <p>Dozens of sites promise "Instagram story downloader — no login." Here's what they don't tell you: <strong>Instagram only serves stories to logged-in sessions.</strong> Unlike reels and posts — which have public preview pages — stories are session-gated by design. Instagram's servers simply refuse to hand story media to anonymous requests.</p>
         <p>So what do those "story downloader" sites actually do? Most show you a fake loading animation and then either fail, demand you "verify" by installing shady apps, or worse — ask for your Instagram credentials. <strong>Never enter your Instagram login on a downloader site.</strong> That's how accounts get stolen.</p>
         <p>InstaSave takes the honest route: this tool will check any link you paste and tell you plainly what it can and can't fetch. For stories, the answer is: <strong>no legitimate no-login tool can fetch them — including us.</strong> We'd rather earn your trust than waste your time.</p>
+      </div>
+    </div></section>
+<section class="section"><div class="wrap"><div class="prose">
+        <h2>How to save stories the right way</h2>
+        <p>If a story matters to you, the legitimate routes are simple: ask the person to send it to you, use Instagram's built-in share when the creator allows it, or save your own stories to highlights and archives from inside the app.</p>
+        <p>What you should never do is type your Instagram password into a “story downloader” site. No real tool needs it — that's the classic account-theft trap. For content that <em>is</em> publicly fetchable, our <a href="/instagram-reels-downloader">reels downloader</a> and <a href="/instagram-photo-downloader">photo downloader</a> work with no login at all.</p>
       </div>
     </div></section>
 <section class="section"><div class="wrap"><div class="section-head"><h2>Legitimate ways to <span class="grad-text">save stories</span></h2>
@@ -98,6 +104,10 @@
         <details class="faq-item"><summary>What is the legitimate way to save someone's story?</summary><div class="faq-a">Ask them to send it to you, or use Instagram's built-in share/save features (public stories can be shared to your story or sent via DM). For your own stories, save them from your archive or highlights.</div></details>
         <details class="faq-item"><summary>Can I download my own story highlights?</summary><div class="faq-a">Yes, easily. Open your profile, tap a highlight, tap the story, then More (⋯) → Save. No third-party tool needed, and the quality is the original.</div></details>
         <details class="faq-item"><summary>Is it legal to download someone else's story?</summary><div class="faq-a">Stories are the creator's copyrighted content. Save them only with permission and for personal use — never repost someone else's story as your own.</div></details>
+        <details class="faq-item"><summary>Can I view someone's story without them knowing?</summary><div class="faq-a">Not through any legitimate tool. Story views are tracked by Instagram itself, and any site claiming anonymous story viewing without a login is misleading you — treat it as a red flag.</div></details>
+        <details class="faq-item"><summary>Do story downloader apps actually work?</summary><div class="faq-a">Most don't. They typically show fake progress bars, then push you to install other apps or hand over your Instagram login. A real story fetch requires an Instagram session, which no honest no-login site has.</div></details>
+        <details class="faq-item"><summary>Can I download my own archived stories?</summary><div class="faq-a">Yes — from inside Instagram. Open your profile, tap the menu, go to Archive, and your past stories are there to save or re-share. No third-party tool needed.</div></details>
+        <details class="faq-item"><summary>Why do some sites ask for my Instagram login?</summary><div class="faq-a">Because stories are session-gated, those sites need your login to fetch them — and that's exactly why you should never give it. Handing your credentials to a random site is how accounts get stolen.</div></details>
       </div>
     </div></section>
 <section class="section alt"><div class="wrap"><div class="section-head"><h2>Tools that <span class="grad-text">actually work</span></h2>
