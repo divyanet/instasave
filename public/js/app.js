@@ -27,78 +27,72 @@
     return '/api/download?u=' + encodeURIComponent(fileUrl) + '&t=' + (kind === 'image' ? 'image' : 'video');
   }
 
-  function typeLabel(d) {
-    if (d.type === 'video') return d.limited ? 'Reel preview' : 'Reel video';
-    if (d.type === 'carousel') return 'Carousel · ' + d.images.length + ' photos';
-    return 'Photo';
+  var ICON_DL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>';
+  var ICON_RETRY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/></svg>';
+
+  function againBtn() {
+    return '<button type="button" class="btn btn-soft btn-block" id="dl-again">' + ICON_RETRY + 'Download Again</button>';
+  }
+
+  function bindAgain() {
+    var b = document.getElementById('dl-again');
+    if (b) b.addEventListener('click', function () {
+      result.classList.remove('show');
+      result.innerHTML = '';
+      setStatus('', '');
+      input.value = '';
+      input.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   }
 
   function render(d) {
-    var authorHtml = d.author
-      ? '<div class="result-author">by ' +
-        (d.authorUrl
-          ? '<a href="' + esc(d.authorUrl) + '" target="_blank" rel="noopener">@' + esc(d.author) + '</a>'
-          : '@' + esc(d.author)) + '</div>'
-      : '';
-
-    var actions = '';
-    var extra = '';
+    var preview = '';
+    var buttons = '';
 
     if (d.type === 'video' && !d.limited && d.url) {
-      actions =
-        '<a class="btn btn-grad btn-sm" href="' + dlHref(d.url, 'video') + '">⬇ Download video (MP4)</a>' +
-        (d.thumbnail ? '<a class="btn btn-ghost btn-sm" href="' + dlHref(d.thumbnail, 'image') + '">Cover photo</a>' : '');
+      preview =
+        '<div class="dl-preview"><video controls playsinline preload="metadata"' +
+        (d.thumbnail ? ' poster="' + esc(d.thumbnail) + '"' : '') +
+        ' src="' + esc(d.url) + '"></video></div>';
+      buttons =
+        '<a class="btn btn-primary btn-block" href="' + dlHref(d.url, 'video') + '">' + ICON_DL + 'Download Video</a>';
     } else if (d.type === 'video' && d.limited) {
-      actions = d.thumbnail
-        ? '<a class="btn btn-grad btn-sm" href="' + dlHref(d.thumbnail, 'image') + '">⬇ Download cover photo</a>'
+      preview = d.thumbnail
+        ? '<div class="dl-preview"><img src="' + esc(d.thumbnail) + '" alt="Video preview" loading="lazy"></div>'
         : '';
-      extra =
-        '<div class="limited-note">⚠️ <strong>Video file blocked:</strong> Instagram is currently refusing ' +
-        'automated video requests from our server, so the MP4 can’t be fetched right now. ' +
-        'You can save the cover photo above, or open the reel in the Instagram app and use its built-in save/share. ' +
-        'We retry the video automatically on every request — it unlocks the moment Instagram allows it.</div>';
+      buttons =
+        '<div class="limited-note">\u26a0\ufe0f <strong>Video file blocked:</strong> Instagram is currently refusing ' +
+        'automated video requests from our server, so the MP4 can\u2019t be fetched right now. ' +
+        'Open the reel in the Instagram app and use its built-in save/share instead. ' +
+        'We retry the video automatically on every request \u2014 it unlocks the moment Instagram allows it.</div>';
     } else if (d.type === 'image' && d.images.length) {
-      actions = '<a class="btn btn-grad btn-sm" href="' + dlHref(d.images[0], 'image') + '">⬇ Download photo (JPG)</a>';
+      preview = '<div class="dl-preview"><img src="' + esc(d.images[0]) + '" alt="Photo preview" loading="lazy"></div>';
+      buttons =
+        '<a class="btn btn-primary btn-block" href="' + dlHref(d.images[0], 'image') + '">' + ICON_DL + 'Download Photo</a>';
     } else if (d.type === 'carousel' && d.images.length) {
-      extra =
-        '<div class="carousel-grid">' +
-        d.images.map(function (src, i) {
-          return (
-            '<div class="carousel-item"><img src="' + esc(src) + '" alt="Photo ' + (i + 1) + '" loading="lazy">' +
-            '<a href="' + dlHref(src, 'image') + '">⬇ Photo ' + (i + 1) + '</a></div>'
-          );
-        }).join('') +
-        '</div>';
+      preview = '<div class="dl-preview"><img src="' + esc(d.images[0]) + '" alt="Photo 1 preview" loading="lazy"></div>';
+      buttons = d.images.map(function (src, i) {
+        return '<a class="btn btn-primary btn-block" href="' + dlHref(src, 'image') + '">' + ICON_DL + 'Download Photo ' + (i + 1) + '</a>';
+      }).join('');
     }
 
-    actions +=
-      ' <a class="btn btn-ghost btn-sm" href="' + esc(d.source) + '" target="_blank" rel="noopener">Open original ↗</a>';
-
     result.innerHTML =
-      '<div class="result-card"><div class="rc-inner">' +
-      (d.thumbnail ? '<img class="result-thumb" src="' + esc(d.thumbnail) + '" alt="Media preview" loading="lazy">' : '') +
-      '<div class="result-meta">' +
-      '<span class="result-type">' + esc(typeLabel(d)) + '</span>' +
-      '<div class="result-title">' + esc(d.title || 'Instagram media') + '</div>' +
-      authorHtml +
-      '<div class="result-actions">' + actions + '</div>' +
-      '</div></div></div>' + extra;
-
+      '<div class="dl-result">' + preview + buttons + againBtn() + '</div>';
     result.classList.add('show');
+    bindAgain();
   }
 
   /* Audio tool: the endpoint returns an MP3 file directly (or JSON on error). */
   function renderAudio(blobUrl, title) {
     result.innerHTML =
-      '<div class="result-card"><div class="rc-inner">' +
-      '<div class="audio-art" aria-hidden="true">🎵</div>' +
-      '<div class="result-meta">' +
-      '<span class="result-type">MP3 audio</span>' +
-      '<div class="result-title">' + esc(title || 'Instagram audio') + '</div>' +
-      '<div class="result-actions">' +
-      '<a class="btn btn-grad btn-sm" href="' + blobUrl + '" download="instasave-audio.mp3">⬇ Download MP3</a>' +
-      '</div></div></div></div>';
+      '<div class="dl-result">' +
+      '<div class="dl-preview"><div class="dl-art"><img src="/img/icons/music.png" alt="" aria-hidden="true"></div></div>' +
+      '<a class="btn btn-primary btn-block" href="' + blobUrl + '" download="instasave-audio.mp3">' + ICON_DL + 'Download MP3</a>' +
+      againBtn() +
+      '</div>';
     result.classList.add('show');
+    bindAgain();
   }
 
   function handleAudio(url) {
