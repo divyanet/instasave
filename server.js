@@ -877,7 +877,15 @@ for (const [route, file] of Object.entries(PAGES)) {
   app.get(route, (req, res) => res.sendFile(path.join(__dirname, 'public', file)));
 }
 
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', index: false }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1h',
+  index: false,
+  // HTML is never cached: content edits must appear immediately.
+  // Versioned assets (?v=N) keep the 1h cache safely.
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 app.get('/robots.txt', (req, res) => res.sendFile(path.join(__dirname, 'public', 'robots.txt')));
 app.get('/sitemap.xml', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sitemap.xml')));
 
