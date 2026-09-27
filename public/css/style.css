@@ -154,6 +154,8 @@ a:hover { text-decoration: underline; }
   padding: 8px 18px; border-radius: 999px; box-shadow: var(--shadow-sm);
   margin-bottom: 26px;
 }
+.badge-row { text-align: center; padding: 34px 0 6px; }
+.badge-row .badge { margin-bottom: 0; }
 .badge .stars { color: #f5a623; letter-spacing: 2px; font-size: 0.8rem; }
 .hero h1 {
   font-size: clamp(1.8rem, 4.2vw, 2.9rem);
