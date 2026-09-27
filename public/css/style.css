@@ -259,6 +259,7 @@ a:hover { text-decoration: underline; }
 .card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); }
 #tools[hidden] { display: none; }
 .icon-tile img { width: 30px; height: 30px; display: block; }
+[data-theme="dark"] .ts-btn img { filter: invert(1); }
 .ts-btn img { width: 20px; height: 20px; display: block; }
 .icon-tile {
   width: 52px; height: 52px; border-radius: 15px; font-size: 1.6rem;
