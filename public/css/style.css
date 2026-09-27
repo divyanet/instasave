@@ -379,6 +379,7 @@ table.compare { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
 .footer-col h4 { font-size: 0.82rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin-bottom: 16px; }
 .footer-col a { display: block; color: var(--muted); font-size: 0.94rem; padding: 5px 0; }
 .footer-col a:hover { color: var(--brand); }
+.footer-disclaimer { color: var(--faint); font-size: 0.82rem; line-height: 1.7; max-width: 860px; padding: 0 0 18px; margin: 0; }
 .footer-bottom {
   border-top: 1px solid var(--border-soft); padding: 22px 0;
   display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between;

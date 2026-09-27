@@ -800,6 +800,7 @@ const PAGES = {
   '/faq': 'faq.html',
   '/privacy-policy': 'privacy-policy.html',
   '/terms-of-service': 'terms-of-service.html',
+  '/dmca': 'dmca.html',
   '/contact': 'contact.html',
 };
 for (const [route, file] of Object.entries(PAGES)) {
