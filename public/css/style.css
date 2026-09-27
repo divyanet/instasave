@@ -156,7 +156,7 @@ a:hover { text-decoration: underline; }
 }
 .badge .stars { color: #f5a623; letter-spacing: 2px; font-size: 0.8rem; }
 .hero h1 {
-  font-size: clamp(2.4rem, 5.6vw, 4rem);
+  font-size: clamp(1.8rem, 4.2vw, 2.9rem);
   font-weight: 800; letter-spacing: -0.035em; line-height: 1.12;
   margin-bottom: 20px;
 }
@@ -261,7 +261,7 @@ a:hover { text-decoration: underline; }
   color: var(--brand-deep); background: var(--brand-soft); padding: 7px 16px; border-radius: 999px; margin-bottom: 16px;
 }
 [data-theme="dark"] .kicker { color: var(--brand); }
-.section-head h2 { font-size: clamp(1.7rem, 3.6vw, 2.5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 14px; }
+.section-head h2 { font-size: clamp(1.4rem, 2.8vw, 1.9rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 14px; }
 .section-head p { color: var(--muted); font-size: 1.05rem; }
 
 /* cards */
@@ -356,7 +356,7 @@ table.compare { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
 
 /* prose (legal / how-to content) */
 .prose { max-width: 820px; margin: 0 auto; }
-.prose h2 { font-size: 1.45rem; font-weight: 800; letter-spacing: -0.02em; margin: 38px 0 12px; }
+.prose h2 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; margin: 38px 0 12px; }
 .prose h3 { font-size: 1.1rem; font-weight: 750; margin: 26px 0 8px; }
 .prose p, .prose li { color: var(--muted); margin-bottom: 12px; }
 .prose p strong, .prose li strong { color: var(--ink); }
@@ -379,7 +379,7 @@ table.compare { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
   content: ""; position: absolute; width: 420px; height: 420px; border-radius: 50%;
   background: rgba(255, 255, 255, 0.12); filter: blur(60px); top: -160px; right: -100px;
 }
-.cta-band h2 { font-size: clamp(1.6rem, 3.4vw, 2.4rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 12px; position: relative; }
+.cta-band h2 { font-size: clamp(1.35rem, 2.7vw, 1.85rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 12px; position: relative; }
 .cta-band p { opacity: 0.92; margin-bottom: 28px; position: relative; }
 .cta-band .btn-ghost { background: #fff; border-color: #fff; color: var(--brand-deep); position: relative; }
 
@@ -387,7 +387,7 @@ table.compare { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
 .page-hero { text-align: center; padding: 64px 0 10px; }
 .breadcrumb { font-size: 0.86rem; color: var(--faint); margin-bottom: 18px; }
 .breadcrumb a { color: var(--muted); font-weight: 600; }
-.page-hero h1 { font-size: clamp(2rem, 4.6vw, 3.1rem); font-weight: 800; letter-spacing: -0.032em; line-height: 1.15; margin-bottom: 16px; }
+.page-hero h1 { font-size: clamp(1.65rem, 3.6vw, 2.4rem); font-weight: 800; letter-spacing: -0.032em; line-height: 1.15; margin-bottom: 16px; }
 .page-hero .sub { color: var(--muted); font-size: 1.08rem; max-width: 660px; margin: 0 auto 34px; }
 .page-hero .sub strong { color: var(--ink); }
 
